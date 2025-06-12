@@ -12,7 +12,7 @@ M = np.block([[R, P],
               [0, 0, 0, 1]])
 
 
-print('M = \n', M.tolist())
+print('M = \n', M.tolist())u
 # %% - Problem 2
 
 w_1 = np.array((0, 0, 1))
