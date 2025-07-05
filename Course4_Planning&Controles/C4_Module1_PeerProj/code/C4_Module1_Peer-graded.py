@@ -92,12 +92,11 @@ def AstarSearch(start, goal, node_positions, edges):
     print("Search exhausted. No path found.")
     return None
 
-# Write path to path.csv
+# Write path to path.csv as a single row
 def write_path(path, filename):
     with open(filename, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        for node in path:
-            writer.writerow([node])
+        writer.writerow(path)
 
 # Main script
 if __name__ == "__main__":
