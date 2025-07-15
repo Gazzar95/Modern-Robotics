@@ -19,28 +19,24 @@ Procedure:
         d) repeat till we hit end node
 """
 
- 
 
 import csv
 
- 
 
 # Procedure 1 - import node & edge .csv files -----------------------------
 
- 
 
 # import nodes
 
- 
 
 def ImportNodes(filename):
     nodes_dic = {}
-    
+
     with open(filename, 'r') as csv_nodes:
         csv_nodes_content = csv.reader(csv_nodes)
-        
+
         for row in csv_nodes_content:
-            
+
             if row[0].startswith('#'):
                 continue
 
@@ -52,7 +48,6 @@ def ImportNodes(filename):
 
     return nodes_dic
 
- 
 
 # import edges
 def ImportEdge(filename):
@@ -63,7 +58,7 @@ def ImportEdge(filename):
         read_edges = csv.reader(csv_edge)
 
         for row in read_edges:
-           
+
             if row[0].startswith('#'):
                 continue
 
@@ -81,40 +76,61 @@ def ImportEdge(filename):
 
     return edge_dic
 
- 
 
 # Procedure 2 - create A* algorithm function -----------------------------
 
- 
 
 def a_star(start, end, nodes_dic, edge_dic):
-
+    # 1 - Define initial OPEN and CLOSED sets for start
     OPEN = []
     CLOSED = set()
 
+    # a) define past cost
     past_cost = {}
     for node in nodes_dic:
         past_cost[node] = float('inf')
     past_cost[start] = 0
 
+    # b) define tot cost
     start_tot = past_cost[start]+nodes_dic[start][3]
 
+    # c) add start node to OPEN list
     OPEN.append((start_tot, past_cost[start], start))
 
-    while len(OPEN)>0:
+    while len(OPEN) > 0:
 
+        # a - Pull best option from OPEN list
         OPEN.sort()
-        tot_cost, past_cost, current = OPEN.pop()
+
+        best_option = OPEN[0]
+        est_tot_cost = best_option[0]
+        past_cost = best_option[1]
+        current = best_option[2]
+
+        OPEN.pop(0)
         CLOSED.add(current)
 
-        neighbor_list = edge_dic.get(current, [])
+        # b - Pull all neighbors of best option
+        neighbors = edge_dic[best_option]
 
-        for neightbor_info in neighbor_list:
-            nbr = neightbor_info[0]
-            cost = neightbor_info[1]
-            
-            
-            if nbr in CLOSED
-                continue
+        for neighbor_info in neighbors:
 
-            
+            nbr = neighbor_info[0]
+            edge_cost = neighbor_info[1]
+
+            cost_to_nbr = edge_cost + past_cost[current]
+
+            if cost_to_nbr < past_cost[nbr]:
+
+                # we need to update this node in open and open has [key:(tot cost, past cost, id)]
+
+                heuristic = nodes_dic[nbr][2]
+                tot_cost = heuristic + cost_to_nbr
+                # we got the tot, now we need to update open
+
+                OPEN.append((tot_cost, cost_to_nbr, nbr))
+
+                # as we go through this for loop of checking each neighbor we need a couple conditions:
+                # 1)if we've already done the FULL check of neighbour (meaning it was CURRENT) then we skip it
+                # 2)if we got to goal node as a neighbour then WE'RE dONE!
+                # 3)
