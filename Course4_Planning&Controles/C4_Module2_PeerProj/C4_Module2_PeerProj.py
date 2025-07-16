@@ -67,9 +67,9 @@ def is_edge_collision(p1, p2, obstacles):
 
 class Node:
     def __init__(self, pos, parent=None, index=0):
-        self.pos = pos
-        self.parent = parent
-        self.index = index
+        self.pos = pos        # A 2D point (x, y)
+        self.parent = parent  # Index of parent node
+        self.index = index    # Index of this node in the node list
 
 # RRT implementation
 
@@ -81,34 +81,43 @@ def rrt(obstacles):
     for i in range(1, MAX_TREE_SIZE):
         # Sample
         if random.random() < GOAL_SAMPLE_RATE:
-            x_rand = x_goal
+            x_samp = x_goal
         else:
-            x_rand = (
+            x_samp = (
                 random.uniform(*X_LIMITS),
                 random.uniform(*Y_LIMITS)
             )
 
         # Find nearest node
-        nearest = min(nodes, key=lambda node: math.hypot(
-            node.pos[0] - x_rand[0], node.pos[1] - x_rand[1]))
+        min_dist = float('inf')
+        x_nearest = None
+
+        for node in nodes:
+            dx = node.pos[0] - x_samp[0]
+            dy = node.pos[1] - x_samp[1]
+            dist = math.hypot(dx, dy)
+
+            if dist < min_dist:
+                min_dist = dist
+                x_nearest = node
 
         # Steer
-        theta = math.atan2(x_rand[1] - nearest.pos[1],
-                           x_rand[0] - nearest.pos[0])
+        theta = math.atan2(x_samp[1] - x_nearest.pos[1],
+                           x_samp[0] - x_nearest.pos[0])
         x_new = (
-            nearest.pos[0] + STEP_SIZE * math.cos(theta),
-            nearest.pos[1] + STEP_SIZE * math.sin(theta)
+            x_nearest.pos[0] + STEP_SIZE * math.cos(theta),
+            x_nearest.pos[1] + STEP_SIZE * math.sin(theta)
         )
 
         if not (X_LIMITS[0] <= x_new[0] <= X_LIMITS[1] and Y_LIMITS[0] <= x_new[1] <= Y_LIMITS[1]):
             continue
 
-        if is_edge_collision(nearest.pos, x_new, obstacles):
+        if is_edge_collision(x_nearest.pos, x_new, obstacles):
             continue
 
-        new_node = Node(x_new, parent=nearest.index, index=len(nodes))
+        new_node = Node(x_new, parent=x_nearest.index, index=len(nodes))
         nodes.append(new_node)
-        edges.append((nearest.index, new_node.index))
+        edges.append((x_nearest.index, new_node.index))
 
         if math.hypot(x_new[0] - x_goal[0], x_new[1] - x_goal[1]) <= GOAL_RADIUS:
             goal_node = Node(x_goal, parent=new_node.index, index=len(nodes))
