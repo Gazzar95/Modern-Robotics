@@ -1,5 +1,5 @@
+# %%
 # Create a beginner-friendly, modular RRT implementation with proper file outputs and structure.
-import ace_tools as tools
 import csv
 import math
 import random
@@ -8,10 +8,10 @@ import os
 # Define workspace boundaries
 X_LIMITS = (-0.5, 0.5)
 Y_LIMITS = (-0.5, 0.5)
-STEP_SIZE = 0.05
+STEP_SIZE = 0.1
 MAX_TREE_SIZE = 1000
 GOAL_SAMPLE_RATE = 0.1
-GOAL_RADIUS = 0.05
+GOAL_RADIUS = 0.1
 
 # Define start and goal
 x_start = (-0.5, -0.5)
@@ -28,7 +28,7 @@ def load_obstacles(filename):
             if not row or row[0].startswith('#'):
                 continue
             x, y, r = map(float, row)
-            obstacles.append((x, y, r))
+            obstacles.append((x, y, r-0.08))
     return obstacles
 
 # Collision checking helpers
@@ -75,7 +75,7 @@ class Node:
 
 
 def rrt(obstacles):
-    nodes = [Node(x_start, parent=None, index=0)]
+    nodes = [Node(x_start, parent=None, index=1)]
     edges = []
 
     for i in range(1, MAX_TREE_SIZE):
@@ -115,12 +115,14 @@ def rrt(obstacles):
         if is_edge_collision(x_nearest.pos, x_new, obstacles):
             continue
 
-        new_node = Node(x_new, parent=x_nearest.index, index=len(nodes))
+        new_node = Node(x_new, parent=x_nearest.index, index=len(nodes)+1)
         nodes.append(new_node)
         edges.append((x_nearest.index, new_node.index))
 
         if math.hypot(x_new[0] - x_goal[0], x_new[1] - x_goal[1]) <= GOAL_RADIUS:
-            goal_node = Node(x_goal, parent=new_node.index, index=len(nodes))
+            print(
+                f"Goal reached at iteration {i} with node index {new_node.index}")
+            goal_node = Node(x_goal, parent=new_node.index, index=len(nodes)+1)
             nodes.append(goal_node)
             edges.append((new_node.index, goal_node.index))
             return nodes, edges, goal_node
@@ -134,50 +136,60 @@ def extract_path(nodes, goal_node):
     path = []
     current = goal_node
     while current is not None:
-        path.append(current.pos)
+        path.append(current)
         parent_index = current.parent
-        current = nodes[parent_index] if parent_index is not None else None
+        current = next((n for n in nodes if n.index == parent_index), None)
     return path[::-1]
 
 # Write output CSVs
 
 
 def write_outputs(nodes, edges, path, out_dir='results'):
+    print(f"Writing output to: {os.path.abspath(out_dir)}")
     os.makedirs(out_dir, exist_ok=True)
 
     with open(os.path.join(out_dir, 'nodes.csv'), 'w', newline='') as f_nodes:
         writer = csv.writer(f_nodes)
+        writer.writerow(["# ID", "x", "y"])  # Header line
         for node in nodes:
-            writer.writerow([f"{node.pos[0]:.4f}", f"{node.pos[1]:.4f}"])
+            writer.writerow(
+                [node.index, f"{node.pos[0]:.4f}", f"{node.pos[1]:.4f}"])
 
     with open(os.path.join(out_dir, 'edges.csv'), 'w', newline='') as f_edges:
         writer = csv.writer(f_edges)
-        for edge in edges:
-            writer.writerow(edge)
+        writer.writerow(["# ID1", "ID2", "cost"])  # Optional header
+        for parent_idx, child_idx in edges:
+            from_node = next(n for n in nodes if n.index == parent_idx)
+            to_node = next(n for n in nodes if n.index == child_idx)
+
+            cost = math.hypot(to_node.pos[0] - from_node.pos[0],
+                              to_node.pos[1] - from_node.pos[1])
+            writer.writerow([parent_idx, child_idx, f"{cost:.4f}"])
 
     with open(os.path.join(out_dir, 'path.csv'), 'w', newline='') as f_path:
         writer = csv.writer(f_path)
-        for pos in path:
-            writer.writerow([f"{pos[0]:.4f}", f"{pos[1]:.4f}"])
+        writer.writerow(
+            ["# All lines beginning with a # are treated as a comment and ignored."])
+        writer.writerow(
+            ["# Below is a solution path represented as a sequence of nodes of the graph."])
+        path_ids = [node.index for node in path]
+        writer.writerow(path_ids)
 
 
 # MAIN EXECUTION
-obstacles = [
-    (0.0, 0.0, 0.2),
-    (0.0, 0.1, 0.2),
-    (0.3, 0.2, 0.2),
-    (-0.3, -0.2, 0.2),
-    (-0.1, -0.4, 0.2),
-    (-0.2, 0.3, 0.2),
-    (0.3, -0.3, 0.2),
-    (0.1, 0.4, 0.2)
-]
+obstacles = load_obstacles('obstacles.csv')
 
 nodes, edges, goal_node = rrt(obstacles)
 if goal_node:
+    print("Path found!")
     path = extract_path(nodes, goal_node)
 else:
+    print("Path NOT found.")
     path = []
 
+
+print("Saving files to:", os.path.abspath('results'))
 write_outputs(nodes, edges, path)
-tools.display_dataframe_to_user(name="Path Output", dataframe=path)
+print("Outputs written successfully.")
+
+# %%
