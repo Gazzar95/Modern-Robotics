@@ -9,7 +9,7 @@ from scipy.optimize import linprog
 def wrench_from_contact(x, y, nx, ny):
     """Compute planar wrench"""
     tau = x*ny - y*nx
-    return np.array([nx, ny, tau])
+    return np.array([tau, nx, ny])
 
 
 def build_F(contacts):
@@ -58,15 +58,15 @@ def is_form_closure(F):
 
 
 if __name__ == "__main__":
-    # Example from MR Ch. 12 (Form closure)
+    print("\033[4mForm closure Example 12.7 from MR\033[0m")
     contacts_fc = [
         (0.0, 0.0, -1.0,  0.0),
         (0.0, 0.0,  0.0, -1.0),
-        (0.0, 1.0,  1.0,  0.0),
-        (2.0, 0.0,  0.0,  1.0),
+        (2.0, 1.0,  1.0,  0.0),
+        (2.0, 1.0,  0.0,  1.0),
     ]
-    F = build_F(contacts_fc)
-    is_fc, k = is_form_closure(F)
+    F_fc = build_F(contacts_fc)
+    is_fc, k = is_form_closure(F_fc)
     if is_fc:
         print("Form closure")
         print("k:", k)
@@ -74,3 +74,22 @@ if __name__ == "__main__":
         print("Not form closure")
         if k is not None:
             print("Candidate k:", k)
+
+    print("\n\033[4mNot Form closure Example 12.7 from MR\033[0m")
+    contacts_nfc = [
+        (0.0, 0.0, -1.0,  0.0),
+        (0.0, 0.0,  0.0, -1.0),
+        (2.0, 0.0,  1.0,  0.0),
+        (2.0, 0.0,  0.0,  -1.0),
+    ]
+    F_nfc = build_F(contacts_nfc)
+    is_fc, k = is_form_closure(F_nfc)
+    if is_fc:
+        print("Form closure")
+        print("k:", k)
+    else:
+        print("Not form closure")
+        if k is not None:
+            print("Candidate k:", k)
+
+# %%
