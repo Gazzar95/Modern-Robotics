@@ -1,5 +1,5 @@
 # %% Course 5: Manipulation and Mobile Robotics
-# %% Module 2: Peer-graded Project: Mobile Robot Programming
+# Module 2: Peer-graded Project: Mobile Robot Programming
 # Goal: Write code to determine if an assembly of rigid bodies in friction contact with eah other can remain standing in gravity.
 # inputs:
 # 1) Dis of static mass properties of each N bodies. Includes:(x, y) locations and center of mass
@@ -111,18 +111,26 @@ if __name__ == "__main__":
     # 1) Define raw_contacts per project spec (fill with your case):
     raw_contacts = [
         # (a, b, x, y, normal_angle, mu)
-        # e.g., (1, 2, 60, 60, np.pi, 0.5)
-        # e.g., (2, 0, 72, 0, 1.5708, 0.25)
+        (1, 0, 0.0, 0.0, np.pi/2, 0.6),   # body1–ground (left foot)
+        (1, 0, 1.0, 0.0, np.pi/2, 0.6),   # body1–ground (right foot)
+
+        # Interface contacts: normals point upward into body2 (a=2).
+        # Equal and opposite forces act on body1 via the pair (b=1) automatically.
+        (2, 1, 0.30, 0.20, np.pi/2, 0.6),  # body2–body1 (left interface point)
+        # body2–body1 (right interface point)
+        (2, 1, 0.70, 0.20, np.pi/2, 0.6),
     ]
 
     # 2) Bodies 1..M: masses and COMs (world coords)
-    masses = []            # e.g., [m1, m2, ...]
-    coms = []            # e.g., [(xc1, yc1), (xc2, yc2), ...]
+    masses = [2.0, 1.0]                    # e.g., [m1, m2, ...]
+    coms = [(0.5, 0.10), (0.5, 0.35)]    # e.g., [(xc1, yc1), (xc2, yc2), ...]
 
-    # Parse & assemble
-    contacts, mus, pairs = from_project_spec(
-        raw_contacts, angle_in_degrees=False)
+    contacts, mus, pairs = from_project_spec(raw_contacts)
     F, b = assemble_F_b(contacts, mus, pairs, masses, coms, g=9.81)
+    feasible, k = is_stable(F, b)
 
-    # Now call: feasible, k = is_stable(F, b)
-    # (leave it to you to print/inspect as you wish)
+    print("Stable?", feasible)
+    if feasible:
+        print("Contact edge magnitudes k:", k)
+
+# %%
