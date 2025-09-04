@@ -111,19 +111,36 @@ if __name__ == "__main__":
     # 1) Define raw_contacts per project spec (fill with your case):
     raw_contacts = [
         # (a, b, x, y, normal_angle, mu)
-        (1, 0, 0.0, 0.0, np.pi/2, 0.6),   # body1–ground (left foot)
-        (1, 0, 1.0, 0.0, np.pi/2, 0.6),   # body1–ground (right foot)
+        # Body 1 (shelf) on ground: two feet at x = 0.00 and 0.60
+        (1, 0, 0.00, 0.00, np.pi/2, 0.6),   # C1: left foot (normal +y)
+        (1, 0, 0.60, 0.00, np.pi/2, 0.6),   # C2: right foot (normal +y)
 
-        # Interface contacts: normals point upward into body2 (a=2).
-        # Equal and opposite forces act on body1 via the pair (b=1) automatically.
-        (2, 1, 0.30, 0.20, np.pi/2, 0.6),  # body2–body1 (left interface point)
-        # body2–body1 (right interface point)
-        (2, 1, 0.70, 0.20, np.pi/2, 0.6),
+        # Body 2 (box) on Body 1 (shelf): two interface points at y = 0.20
+        # C3: left interface (normal +y into box)
+        (2, 1, 0.40, 0.20, np.pi/2, 0.6),
+        (2, 1, 0.60, 0.20, np.pi/2, 0.6),   # C4: right interface
+
+        # Body 3 (post): ground foot and side contact on shelf’s right face (x = 0.60)
+        (3, 0, 0.50, 0.00, np.pi/2, 0.6),   # C5: post-ground (normal +y)
+        # C6: post-shelf side (normal -x into post)
+        (3, 1, 0.60, 0.10, 2*np.pi,   0.6),
     ]
 
-    # 2) Bodies 1..M: masses and COMs (world coords)
-    masses = [2.0, 1.0]                    # e.g., [m1, m2, ...]
-    coms = [(0.5, 0.10), (0.5, 0.35)]    # e.g., [(xc1, yc1), (xc2, yc2), ...]
+# ---------- Bodies (stable) ----------
+# Bodies are 1..M in the same order used above.
+
+    masses = [
+        2.5,   # Body 1: shelf (kg)
+        0.6,   # Body 2: box  (kg) shorter box (0.2→0.3m)
+        0.8,   # Body 3: post (kg)
+    ]
+
+    # COM locations (world coords), tuned for feasibility
+    coms = [
+        (0.30, 0.10),  # Body 1 (shelf) center-ish
+        (0.58, 0.25),  # Body 2 (box) center of 0.8–1.2 shifted/short box
+        (0.65, 0.05),  # Body 3 (post) near the line between its two contacts
+    ]
 
     contacts, mus, pairs = from_project_spec(raw_contacts)
     F, b = assemble_F_b(contacts, mus, pairs, masses, coms, g=9.81)
