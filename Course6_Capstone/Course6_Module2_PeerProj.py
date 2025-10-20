@@ -45,55 +45,66 @@ Tsc_final = np.zeros((4, 4))
 T_ce_grasp = np.zeros((4, 4))
 T_ce_standoff = np.zeros((4, 4))
 
-v_max = 0.1 #max linear velocity
-w_max = 0.1 #max angular velocity
+v_max = 0.1  # max linear velocity
+w_max = 0.1  # max angular velocity
 
 method = 5
 
-# def TrajectoryGenerator(Tse_init, Tsc_init, Tsc_final, T_ce_grasp, T_ce_standoff, N):
-
-# ------------------- Combine confgs into a single trajectory matrix ---------------------
-
-# change standoff & grip position to be rel to space frame
-Tse_init_standoff = Tsc_init@T_ce_standoff
-Tse_init_grasp = Tsc_init@T_ce_grasp
-
-Tse_final_standoff = Tsc_final@T_ce_standoff
-Tse_final_grasp = Tsc_final@T_ce_grasp
-
-# 8 segments: (start, end, is_hold, gripper_state_during_segment)
-segments = [
-     (Tse_init,           Tse_init_standoff,  False, 0),  # 1: move open
-     (Tse_init_standoff,  Tse_init_grasp,     False, 0),  # 2: move open
-     (Tse_init_grasp,     Tse_init_grasp,     True,  1),  # 3: hold (close -> 1)
-     (Tse_init_grasp,     Tse_init_standoff,  False, 1),  # 4: move closed
-     (Tse_init_standoff,  Tse_final_standoff, False, 1),  # 5: transit closed
-     (Tse_final_standoff, Tse_final_grasp,    False, 1),  # 6: move closed
-     (Tse_final_grasp,    Tse_final_grasp,    True,  0),  # 7: hold (open -> 0)
-     (Tse_final_grasp,    Tse_final_standoff, False, 0),  # 8: move open
-]
+# ------------------- Trajectory generation function ---------------------
 
 
+def TrajectoryGenerator(Tse_init, Tsc_init, Tsc_final, T_ce_grasp, T_ce_standoff, N):
 
-for Xstart, Xend, is_hold, g in segments:
-    
-    if is_hold:
-       N = np.ceil(hold_time / dt)
-       Tf = float(N * dt)
+    # create segment matrix <---------------------
 
-    else:
-     dt = 0.01 #time step
+    # change standoff & grip position to be rel to space frame
+    Tse_init_standoff = Tsc_init@T_ce_standoff
+    Tse_init_grasp = Tsc_init@T_ce_grasp
 
-     # Total time of motion (scalar)
-     Tf = segment_duration(Xstart, Xend, v_max, w_max)
-     N =  N = int(Tf / dt) # Number of trajectory points (integer)
-     
-     Traj = mr.ScrewTrajectory(Xstart, Xend, Tf, N, method)
+    Tse_final_standoff = Tsc_final@T_ce_standoff
+    Tse_final_grasp = Tsc_final@T_ce_grasp
 
-# trajectory calc
+    # 8 segments: (start, end, is_hold, gripper_state_during_segment)
+    segments = [
+        (Tse_init,           Tse_init_standoff,  False, 0),  # 1: move open
+        (Tse_init_standoff,  Tse_init_grasp,     False, 0),  # 2: move open
+        (Tse_init_grasp,     Tse_init_grasp,     True,  1),  # 3: hold (close -> 1)
+        (Tse_init_grasp,     Tse_init_standoff,  False, 1),  # 4: move closed
+        (Tse_init_standoff,  Tse_final_standoff, False, 1),  # 5: transit closed
+        (Tse_final_standoff, Tse_final_grasp,    False, 1),  # 6: move closed
+        (Tse_final_grasp,    Tse_final_grasp,    True,  0),  # 7: hold (open -> 0)
+        (Tse_final_grasp,    Tse_final_standoff, False, 0),  # 8: move open
+    ]
 
-print(traj_8x16.shape)
+    # generate trajectories <---------------------
+    Traj = []
+    i = 0
+    for Xstart, Xend, is_hold, g in segments:
 
-# return
+        if is_hold:
+            Tf = segment_duration(Xstart, Xend, v_max, w_max)
+            N = np.ceil(hold_time / dt)
+            Tf = float(N * dt)
+            Traj_segment_4x4 = [Xstart for _ in range(N)]
+            Traj_segment_1x13 = [Traj_segment_4x4[0:3, 0:3].reshape(
+                1, 9), Traj_segment_4x4[0:3, 4], g]
+
+        else:
+            dt = 0.01  # time step
+
+            # Total time of motion (scalar)
+            Tf = segment_duration(Xstart, Xend, v_max, w_max)
+            N = int(Tf / dt)  # Number of trajectory points (integer)
+
+            Traj_segment_4x4 = mr.ScrewTrajectory(Xstart, Xend, Tf, N, method)
+            Traj_segment_1x13 = [Traj_segment_4x4[0:3, 0:3].reshape(
+                1, 9), Traj_segment_4x4[0:3, 3], g]
+
+        Traj[i] = Traj_segment_1x13
+        i = i+1
+
+    #
+
+    return Traj
 
 # %%
