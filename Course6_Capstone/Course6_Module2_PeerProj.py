@@ -19,7 +19,7 @@ import csv
 # ----------- Calc tot time of motion Tf fer each segment --------------------
 
 
-def segment_duration(Xstart, Xend, v_max=0.1, w_max=1.0):
+def segment_duration(Xstart, Xend, v_max=0.1, w_max=1.0, dt=0.01):
     """Estimate reasonable Tf for ScrewTrajectory segment."""
 
     # Euclidean distance distance
@@ -33,27 +33,21 @@ def segment_duration(Xstart, Xend, v_max=0.1, w_max=1.0):
     Tf = max(dp / v_max, theta / w_max)
 
     # Round up to nearest 0.01 s
-    Tf = np.ceil(Tf / 0.01) * 0.01
+    Tf = float(np.ceil(Tf / dt) * dt)
     return Tf
 
 # *********************** Trouble shoot values ************************************
 
 
-Tse_init = np.zeros((4, 4))
-Tsc_init = np.zeros((4, 4))
-Tsc_final = np.zeros((4, 4))
-T_ce_grasp = np.zeros((4, 4))
-T_ce_standoff = np.zeros((4, 4))
-
 v_max = 0.1  # max linear velocity
 w_max = 0.1  # max angular velocity
 
 method = 5
-
+hold_time = 2  # seconds
 # ------------------- Trajectory generation function ---------------------
 
 
-def TrajectoryGenerator(Tse_init, Tsc_init, Tsc_final, T_ce_grasp, T_ce_standoff, N):
+def TrajectoryGenerator(Tse_init, Tsc_init, Tsc_final, T_ce_grasp, T_ce_standoff):
 
     # create segment matrix <---------------------
 
@@ -77,34 +71,26 @@ def TrajectoryGenerator(Tse_init, Tsc_init, Tsc_final, T_ce_grasp, T_ce_standoff
     ]
 
     # generate trajectories <---------------------
-    Traj = []
-    i = 0
-    for Xstart, Xend, is_hold, g in segments:
+    rows = []
+    dt = 0.01  # time step
 
+    for seg_idx, (Xs, Xe, is_hold, g) in enumerate(segments):
         if is_hold:
-            Tf = segment_duration(Xstart, Xend, v_max, w_max)
-            N = np.ceil(hold_time / dt)
-            Tf = float(N * dt)
-            Traj_segment_4x4 = [Xstart for _ in range(N)]
-            Traj_segment_1x13 = [Traj_segment_4x4[0:3, 0:3].reshape(
-                1, 9), Traj_segment_4x4[0:3, 4], g]
-
+            N = int(np.ceil(hold_time / dt))
+            seg_poses = [Xs.copy() for _ in range(N)]
         else:
-            dt = 0.01  # time step
+            Tf = segment_duration(Xs, Xe, v_max, w_max)
+            N = max(2, int(np.ceil(Tf / dt)))
+            seg_poses = mr.ScrewTrajectory(Xs, Xe, Tf, N, method)
 
-            # Total time of motion (scalar)
-            Tf = segment_duration(Xstart, Xend, v_max, w_max)
-            N = int(Tf / dt)  # Number of trajectory points (integer)
+        start = 0 if seg_idx == 0 else 1            # avoid duplicate boundary
+        for X in seg_poses[start:]:
+            R = X[:3, :3]
+            p = X[:3, 3]
+            row = np.hstack([R.reshape(9), p, [g]])  # -> (13,)
+            rows.append(row)
 
-            Traj_segment_4x4 = mr.ScrewTrajectory(Xstart, Xend, Tf, N, method)
-            Traj_segment_1x13 = [Traj_segment_4x4[0:3, 0:3].reshape(
-                1, 9), Traj_segment_4x4[0:3, 3], g]
-
-        Traj[i] = Traj_segment_1x13
-        i = i+1
-
-    #
-
+    Traj = np.vstack(rows)                          # -> (M, 13)
     return Traj
 
 # %%
