@@ -35,17 +35,19 @@ R_0e = np.array([[ca, -sa, 0.0],
 p_0e = R_0e @ np.array([k, 0.0, 0.0])
 T_0e = mr.RpToTrans(R_0e, p_0e)
 
-# Compute T_be and its Adjoint - chassis to end-effector
-T_be = np.linalg.inv(T_0e) @ np.linalg.inv(T_b0)
-Ad = mr.Adjoint(T_be)
+# Compute T_eb and its Adjoint - chassis to end-effector
+T_eb = np.linalg.inv(T_0e) @ np.linalg.inv(T_b0)
+Ad = mr.Adjoint(T_eb)
 
 J_base = Ad @ F_6
 
 # ----------Calc J_Arm----------
+M_0e = mr.RpToTrans(np.eye(3), np.array([k, 0.0, 0.0]))
 
-S1 = np.array([0, 0, 1, 0, 0, 0])
-T_e0 = np.linalg.inv(T_0e)
-J_arm = mr.Adjoint(T_e0) @ S1
+# Arm column is the (constant) body screw B1
+# rotation about z-axis at base of arm
+S1 = np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+J_arm = mr.Adjoint(np.linalg.inv(M_0e)) @ S1
 
 print("J_base =\n", repr(J_base))  # second column of Jacobian
 print("J_arm =\n", repr(J_arm))  # arm Jacobian

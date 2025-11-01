@@ -1,6 +1,6 @@
 # %%
 # Course 6: Capstone Project
-# Milestone 1: youBot Kinematics Simulator & CSV output
+# Milestone 2: youBot Kinematics Simulator & CSV output
 # Input:
 # 1)Initial config of end effector T_se,init
 # 2) Initial config of cube T_sc,init
