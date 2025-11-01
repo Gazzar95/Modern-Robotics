@@ -94,6 +94,7 @@ def main():
             Traj[row + 1][0:16]).reshape((4, 4)) if row + 1 < len(Traj) else Tse_d
 
         if row == 0:
+            current_config = np.zeros(12)  # initial full config
             Tse = Tse_init  # initial actual config
         else:
             current_config = NextState(
@@ -101,10 +102,40 @@ def main():
             # compute actual end-effector config
             Tse = mr.FKinBody(M0e, Blist, current_config[3:8])
 
+        # Log data to CSV
+        with open('youBot_Simulation_Log.csv', mode='a', newline='') as file:
+            writer = csv.writer(file)
+            row_data = list(current_config) + \
+                list(Tse.flatten()) + [gripper_state]
+            writer.writerow(row_data)
+
         # Compute feedback control
         Kp = np.eye(6) * 1.0
         Ki = np.eye(6) * 0.0
         V, X_err, X_err_int_new = FeedbackControl(
             Tse, Tse_d, Tse_d_next, Kp, Ki, dt)
 
-        # Here, you would compute joint_speeds based on V and the robot's Jacobian
+        # Jacobian
+        J_arm = mr.JacobianBody(Blist, current_config[3:8])
+        # Wheel Jacobian
+        r = 0.0475  # wheel radius
+        l = 0.235   # half distance along x
+        w = 0.15    # half distance along y
+        H0 = (1.0 / r) * np.array([
+            [-l - w,  1, -1],
+            [l + w,  1,  1],
+            [l + w,  1, -1],
+            [-l - w,  1,  1]
+        ])  # shape (4,3)
+        F = np.linalg.pinv(H0)                 # 3x4
+        F_6 = np.zeros((6, 4))
+        F_6[2:5, :] = F
+        T_0e = mr.FKinBody(M0e, Blist, current_config
+                           [3:8])
+        T_eb = np.linalg.inv(T_0e)
+        Ad = mr.Adjoint(T_eb)
+        J_base = Ad @ F_6
+        J = np.hstack((J_base, J_arm))  # full Jacobian
+
+        # Compute joint speeds
+        joint_speeds = np.linalg.pinv(J) @ V
