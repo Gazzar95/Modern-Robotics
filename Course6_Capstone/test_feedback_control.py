@@ -1,6 +1,6 @@
 # %%
 # Test script for FeedbackControl using inputs from the attached image
-from Course6_Capstone.FeedbackControl import FeedbackControl
+from FeedbackControl import FeedbackControl
 import os
 import sys
 import numpy as np
