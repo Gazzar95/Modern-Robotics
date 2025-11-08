@@ -7,6 +7,7 @@
 import numpy as np
 import modern_robotics as mr
 import csv
+import os
 from TrajectoryGenerator import TrajectoryGenerator
 from FeedbackControl import FeedbackControl
 from NextState import NextState
@@ -83,6 +84,7 @@ M0e = np.array([
     [0, 0, 1, 0.6546],
     [0, 0, 0, 1]
 ])  # home config of end-effector
+
 Blist = np.array([
     [0, 0, 1, 0, 0.033, 0],
     [0, -1, 0, -0.5076, 0, 0],
@@ -105,8 +107,8 @@ l = 0.235
 w = 0.15
 
 # Controller gains (start with Ki=0; add small Ki if you see steady-state error)
-Kp = np.diag([4.0, 4.0, 4.0, 1.0, 1.0, 1.0])
-Ki = np.zeros((6, 6))
+Kp = .5 * np.eye((6))
+Ki = 0 * np.eye((6))
 
 # Actuator speed limits (example)
 wheel_speed_max = 10.0  # rad/s
@@ -119,35 +121,30 @@ joint_speed_max = 1.0   # rad/s
 def main():
 
     # Trajectory Variables
-    Tse_init = np.array([
-        [0, 0, 1, 0.5],
-        [0, 1, 0, 0.0],
-        [-1, 0, 0, 0.5],
-        [0, 0, 0, 1]
-    ])
+    Tse_init = Tb0 @ M0e
 
-    Tsc_init = np.array([
+    Tsc_init = np.array([  # Cube initial position
         [1, 0, 0, 1.0],
         [0, 1, 0, 0.0],
         [0, 0, 1, 0.025],
         [0, 0, 0, 1]
     ])
 
-    Tsc_final = np.array([
+    Tsc_final = np.array([  # Cube final position
         [0, 1, 0, 0.0],
         [-1, 0, 0, -1.0],
         [0, 0, 1, 0.025],
         [0, 0, 0, 1]
     ])
 
-    Tce_grasp = np.array([
+    Tce_grasp = np.array([  # Grasp position
         [0, 0, 1, 0.0],
         [0, 1, 0, 0.0],
         [-1, 0, 0, 0.015],
         [0, 0, 0, 1]
     ])
 
-    Tce_standoff = np.array([
+    Tce_standoff = np.array([  # Standoff position
         [0, 0, 1, 0.0],
         [0, 1, 0, 0.0],
         [-1, 0, 0, 0.05],
@@ -163,55 +160,72 @@ def main():
     )  # expect shape [N, 13] or list of length N
 
     # ----- Initialize robot state q (12-vector): [phi, x, y, θ1..θ5, wheel1..wheel4] -----
-    q = np.zeros(12)
+    q = np.array([
+        0.0,  # phi
+        0.0,  # x
+        0.0,  # y
+        0.0,  # θ1
+        0.0,  # θ2
+        0.2,  # θ3   <-- important
+        -1.6,  # θ4   <-- important
+        0.0,  # θ5
+        0.0, 0.0, 0.0, 0.0  # wheels
+    ], dtype=float)
     Xerr_int = np.zeros(6)
 
     # ----- Open CSV log (optional) -----
-    with open("youBot_Simulation_Log.csv", "w", newline="") as f:
+    # Keep the files open for the entire control loop so writers are valid
+
+    with open("youBot_Simulation.csv", "w", newline="") as f:
         writer = csv.writer(f)
-        # header (optional)
-        writer.writerow([
-            "phi", "x", "y", "th1", "th2", "th3", "th4", "th5", "wh1", "wh2", "wh3", "wh4",
-            "r11", "r12", "r13", "r21", "r22", "r23", "r31", "r32", "r33", "px", "py", "pz", "g",
-            "Xerr_wx", "Xerr_wy", "Xerr_wz", "Xerr_vx", "Xerr_vy", "Xerr_vz"
-        ])
 
-    # ----- Control loop -----
-    for k in range(len(traj) - 1):
-        # refs now/next
-        Tse_d, gk = row13_to_T(traj[k])
-        Tse_d_next, _ = row13_to_T(traj[k+1])
+        # # header (optional)
+        # writer.writerow([
+        #     "phi", "x", "y", "th1", "th2", "th3", "th4", "th5", "wh1", "wh2", "wh3", "wh4", "g"
+        # ])
 
-        # actual pose from state: Tse = Tsb(q_base) * Tb0 * FKinBody(M0e,Blist, thetalist)
-        phi, x, y = q[0], q[1], q[2]
-        thetalist = q[3:8]
-        Tsb = Tsb_from_chassis(phi, x, y)
-        T0e = mr.FKinBody(M0e, Blist, thetalist)
-        Tse = Tsb @ Tb0 @ T0e
+        # ----- Control loop -----
+        for k in range(len(traj) - 1):
+            # refs now/next
+            Tse_d, g = row13_to_T(traj[k])
+            Tse_d_next, _ = row13_to_T(traj[k+1])
 
-        # feedback control (PI + feedforward, all in {e})
-        V, Xerr, Xerr_int = FeedbackControl(
-            Tse, Tse_d, Tse_d_next, Kp, Ki, dt, Xerr_int)
+            # actual pose from state: Tse = Tsb(q_base) * Tb0 * FKinBody(M0e,Blist, thetalist)
+            phi, x, y = q[0], q[1], q[2]
+            thetalist = q[3:8]
+            Tsb = Tsb_from_chassis(phi, x, y)
+            T0e = mr.FKinBody(M0e, Blist, thetalist)
+            Tse = Tsb @ Tb0 @ T0e
 
-        # whole-robot Jacobian (6x9), u = [wheels(4), joints(5)]
-        Je = whole_robot_body_jacobian(q, M0e, Blist, Tb0, r, l, w)
-        u = np.linalg.pinv(Je, rcond=1e-4) @ V
+            # feedback control (PI + feedforward, all in {e})
+            V, Xerr, Xerr_int = FeedbackControl(
+                Tse, Tse_d, Tse_d_next, Kp, Ki, dt, Xerr_int)
 
-        # clamp actuator speeds
-        u[:4] = np.clip(u[:4],  -wheel_speed_max, wheel_speed_max)
-        u[4:] = np.clip(u[4:],  -joint_speed_max, joint_speed_max)
+            # whole-robot Jacobian (6x9), u = [wheels(4), joints(5)]
+            Je = whole_robot_body_jacobian(q, M0e, Blist, Tb0, r, l, w)
+            u = np.linalg.pinv(Je, rcond=1e-4) @ V
 
-        # integrate to next state
-        # ensure your NextState signature matches (q, u, dt, ...)
-        q = NextState(q, u, dt)
+            # clamp actuator speeds
+            u[:4] = np.clip(u[:4],  -wheel_speed_max, wheel_speed_max)
+            u[4:] = np.clip(u[4:],  -joint_speed_max, joint_speed_max)
 
-        # log current state + current reference pose + error
-        row = list(q) + list(Tse_d[:3, :3].reshape(-1)) + \
-            list(Tse_d[:3, 3]) + [gk] + list(Xerr)
-        writer.writerow(row)
+            # integrate to next state
+            # ensure your NextState signature matches (q, u, dt, ...)
+            q = NextState(q, u, dt, wheel_speed_max)
 
-    print("Simulation complete. CSV written: youBot_Simulation_Log.csv")
+            # order: phi, x, y, joint1..joint5, wheel1..wheel4, g
+            row = [float(q[0]), float(q[1]), float(q[2])] \
+                + [float(x) for x in q[3:8]] \
+                + [float(x) for x in q[8:12]] \
+                + [int(g)]
+            writer.writerow(row)
+
+            # Also write the 13-column CSV the scene expects:
+
+    print("Simulation complete. CSV written: youBot_Simulation.csv")
 
 
 if __name__ == "__main__":
     main()
+
+# %%

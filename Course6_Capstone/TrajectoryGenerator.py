@@ -47,7 +47,7 @@ hold_time = 2  # seconds
 # ------------------- Trajectory generation function ---------------------
 
 
-def TrajectoryGenerator(Tse_init, Tsc_init, Tsc_final, T_ce_grasp, T_ce_standoff):
+def TrajectoryGenerator(Tse_init, Tsc_init, Tsc_final, T_ce_grasp, T_ce_standoff, dt):
 
     # create segment matrix <---------------------
 
@@ -72,14 +72,13 @@ def TrajectoryGenerator(Tse_init, Tsc_init, Tsc_final, T_ce_grasp, T_ce_standoff
 
     # generate trajectories <---------------------
     rows = []
-    dt = 0.01  # time step
 
     for seg_idx, (Xs, Xe, is_hold, g) in enumerate(segments):
         if is_hold:
             N = int(np.ceil(hold_time / dt))
             seg_poses = [Xs.copy() for _ in range(N)]
         else:
-            Tf = segment_duration(Xs, Xe, v_max, w_max)
+            Tf = segment_duration(Xs, Xe, v_max, w_max, dt)
             N = max(2, int(np.ceil(Tf / dt)))
             seg_poses = mr.ScrewTrajectory(Xs, Xe, Tf, N, method)
 
