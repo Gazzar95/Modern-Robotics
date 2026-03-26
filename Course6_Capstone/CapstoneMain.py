@@ -220,7 +220,7 @@ def main():
                 + [int(g)]
             writer.writerow(row)
 
-            # Also write the 13-column CSV the scene expects:
+            # Write the 13-column CSV the scene expects:
 
     print("Simulation complete. CSV written: youBot_Simulation.csv")
 

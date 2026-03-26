@@ -15,12 +15,12 @@ import modern_robotics as mr
 import csv
 
 
-def NextState(current_config, joint_speeds, dt, joint_limits):
+def NextState(q, joint_speeds, dt, joint_limits):
     # --------- unpack state ----------
     # current_config is length-12 1D: [phi, x, y, J1..J5, W1..W4]
-    phi, x, y = current_config[0:3]
-    arm_position = current_config[3:8]    # rad (5)
-    wheel_position = current_config[8:12]   # rad (4)
+    phi, x, y = q[0:3]
+    arm_position = q[3:8]    # rad (5)
+    wheel_position = q[8:12]   # rad (4)
 
     # --------- unpack controls ----------
     # joint_speeds is length-9 1D: [W1d..W4d, J1d..J5d]
